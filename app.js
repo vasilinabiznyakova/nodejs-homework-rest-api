@@ -12,7 +12,7 @@ mongoose
   .then(() => console.log("Database connection success"))
   .catch((error) => console.log(error.message));
 
-// connected DB
+// connected DB to project
 
 const contactsRouter = require("./routes/api/contacts");
 
