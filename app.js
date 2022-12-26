@@ -3,7 +3,7 @@ const logger = require("morgan");
 const cors = require("cors");
 // connected DB
 const mongoose = require("mongoose");
-const { DB_HOST } = require("./config");
+const { DB_HOST } = process.env;
 mongoose.set("strictQuery", true);
 
 mongoose
@@ -11,6 +11,7 @@ mongoose
   .then(() => console.log("Database connection success"))
   .catch((error) => console.log(error.message));
 
+console.log(process.env);
 // connected DB to project
 
 const contactsRouter = require("./routes/api/contacts");
