@@ -3,10 +3,9 @@ const logger = require("morgan");
 const cors = require("cors");
 // connected DB
 const mongoose = require("mongoose");
+const { DB_HOST } = require("./config");
 mongoose.set("strictQuery", true);
 
-const DB_HOST =
-  "mongodb+srv://Vas:MlrKfr9bD6UmNSUe@cluster0.epi5ilu.mongodb.net/db_contacts?retryWrites=true&w=majority";
 mongoose
   .connect(DB_HOST)
   .then(() => console.log("Database connection success"))
