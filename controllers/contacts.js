@@ -2,18 +2,37 @@ const { HttpError, ctrlWrapper } = require("../helpers");
 const { Contact } = require("../models/contact");
 
 const listContacts = async (req, res) => {
-  const result = await Contact.find();
-  res.json(result);
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const { _id: owner } = req.user;
+  const { favorite } = req.query;
+  if (favorite) {
+    const result = await Contact.find({ owner, favorite: true }, "", {
+      skip,
+      limit,
+    }).populate("owner", "name email");
+    res.json(result);
+  } else {
+    const result = await Contact.find({ owner }, "", {
+      skip,
+      limit,
+    }).populate("owner", "name email");
+    res.json(result);
+  }
 };
 
 const addContact = async (req, res) => {
-  const result = await Contact.create(req.body);
+  // const { _id: owner } = req.user;
+  const owner = req.user._id;
+  const result = await Contact.create({ ...req.body, owner });
+
   res.status(201).json(result);
 };
 
 const getContactById = async (req, res) => {
   const { id } = req.params;
-  console.log(id);
+  // console.log(id);
   // const result = await Contact.findOne({ _id: id });
   const result = await Contact.findById(id);
   if (!result) {
