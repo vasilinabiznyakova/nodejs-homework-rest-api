@@ -4,11 +4,12 @@ const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
 const fs = require("fs/promises");
 const path = require("path");
-var Jimp = require("jimp");
+const Jimp = require("jimp");
+const { nanoid } = require("nanoid");
 
-const { HttpError, ctrlWrapper } = require("../helpers");
+const { HttpError, ctrlWrapper, sendEmail } = require("../helpers");
 
-const { SECRET_KEY } = process.env;
+const { SECRET_KEY, BASE_URL } = process.env;
 
 const register = async (req, res) => {
   const { email, password } = req.body;
@@ -18,13 +19,23 @@ const register = async (req, res) => {
   }
 
   const hashPassword = await bcrypt.hash(password, 10);
-
   const avatarURL = gravatar.url(email);
+  const verificationCode = nanoid();
+
   const newUser = await User.create({
     ...req.body,
     password: hashPassword,
     avatarURL,
+    verificationCode,
   });
+
+  const verifyEmail = {
+    to: email,
+    subject: "Verify email",
+    html: `<a target="_blank" href="${BASE_URL}/api/users/verify/${verificationCode}">Click to verify email</a>`,
+  };
+
+  await sendEmail(verifyEmail);
 
   res.status(201).json({
     name: newUser.name,
@@ -32,10 +43,54 @@ const register = async (req, res) => {
   });
 };
 
+const verify = async (req, res) => {
+  const { verificationCode } = req.params;
+
+  const user = await User.findOne({ verificationCode });
+  if (!user) {
+    throw HttpError(404);
+  }
+
+  await User.findByIdAndUpdate(user._id, {
+    verify: true,
+    verificationCode: "",
+  });
+
+  res.json({
+    message: "Verification successful",
+  });
+};
+
+const duplicateVerify = async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    throw HttpError(400, "missing required field email"); // "Email invalid"
+  }
+  const user = await User.findOne({ email });
+  if (user.verify) {
+    throw HttpError(400, "Verification has already been passed"); // "Email invalid"
+  }
+  const verifyEmail = {
+    to: email,
+    subject: "Verify email",
+    html: `<a target="_blank" href="${BASE_URL}/api/users/verify/${user.verificationCode}">Click to verify email</a>`,
+  };
+
+  await sendEmail(verifyEmail);
+
+  res.json({
+    message: "Verification email sent",
+  });
+};
+
 const login = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
   if (!user) {
+    throw HttpError(401, "Email or password invalid"); // "Email invalid"
+  }
+
+  if (!user.verify) {
     throw HttpError(401, "Email or password invalid"); // "Email invalid"
   }
 
@@ -49,8 +104,6 @@ const login = async (req, res) => {
   };
   const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "23h" });
   await User.findByIdAndUpdate(user._id, { token });
-
-  // console.log(token);
 
   res.json({
     token,
@@ -98,7 +151,7 @@ const updateAvatar = async (req, res) => {
   const resultUpload = path.join(avatarsDir, newFileName);
   await fs.rename(tempUpload, resultUpload);
 
-  const avatarURL = path.join("avatars", newFileName);
+  const avatarURL = path.join(BASE_URL, "avatars", newFileName);
   await User.findByIdAndUpdate(_id, { avatarURL });
 
   res.json({
@@ -113,4 +166,6 @@ module.exports = {
   logout: ctrlWrapper(logout),
   updateSubscription: ctrlWrapper(updateSubscription),
   updateAvatar: ctrlWrapper(updateAvatar),
+  verify: ctrlWrapper(verify),
+  duplicateVerify: ctrlWrapper(duplicateVerify),
 };
