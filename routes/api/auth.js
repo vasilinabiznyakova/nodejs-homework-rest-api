@@ -13,6 +13,9 @@ router.patch(
 );
 // signup
 router.post("/signup", validation(schemas.registerSchema), ctrl.register);
+router.post("/verify", ctrl.duplicateVerify);
+
+router.get("/verify/:verificationCode", ctrl.verify);
 // signin
 router.post("/login", validation(schemas.loginSchema), ctrl.login);
 
